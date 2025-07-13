@@ -9,80 +9,29 @@ import Box from '@mui/material/Box';
 import type { Order } from '../types/order';
 import { OrderInfoCard } from '../components/OrderDetails/OrderInfoCard';
 import { OrderItemList } from '../components/OrderDetails/OrderItemList';
+import { updateOrderStatus, fetchOrderDetail } from '../services/orderService';
 
-function mockChangeOrderStatus(order: Order): Promise<Order> {
-    // Mock function to simulate API call
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve({ ...order, orderStatus: 'READY_FOR_PICKUP' });
-        }, 500);
-    });
-}
-
-// Mock function to fetch order by ID (replace with actual API call)
-async function fetchOrderById(orderId: string): Promise<Order | null> {
-    // In a real app, this would be an API call
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            // This is just mock data - in a real app, you would fetch from your API
-            const mockOrders: Order[] = [
-                {
-                    id: 100,
-                    orderNumber: 202406241001,
-                    orderTotalPrice: 12500,
-                    orderStatus: 'PREPARING',
-                    pickupType: 'IN_STORE',
-                    orderRequestMemo: '빨대 빼주세요',
-                    orderExpectedPickupTime: Math.floor(Date.now() / 1000) + 1800, // 30분 후
-                    store: { id: 1, name: '스타벅스 강남점' },
-                    member: { id: 1, name: '홍길동' },
-                    orderItems: [
-                        {
-                            id: 1,
-                            itemName: '아메리카노',
-                            orderItemQuantity: 2,
-                            unitPrice: 4500,
-                            options: [
-                                {
-                                    id: 1,
-                                    syrupName: '샷 추가',
-                                    isRequired: true,
-                                    displayOrder: 1,
-                                    additionalPrice: 500,
-                                    quantity: 2,
-                                },
-                                {
-                                    id: 2,
-                                    syrupName: '시럽 추가',
-                                    isRequired: false,
-                                    displayOrder: 2,
-                                    additionalPrice: 500,
-                                    quantity: 1,
-                                },
-                            ],
-                        },
-                        {
-                            id: 2,
-                            itemName: '치즈케이크',
-                            orderItemQuantity: 1,
-                            unitPrice: 3500,
-                            options: [],
-                        },
-                    ],
-                },
-                // Add more mock orders as needed
-            ];
-
-            const foundOrder = mockOrders.find((order) => order.id.toString() === orderId) || null;
-            resolve(foundOrder);
-        }, 300);
-    });
-}
+// 주문 상태 변경 실제 API 사용
+// const handleChangeStatus = async () => {
+//     if (!order) return;
+//     setLoading(true);
+//     try {
+//         await updateOrderStatus(order.id, 'READY_FOR_PICKUP'); // 실제로는 새로운 상태 전달
+//         // 상태 변경 후 다시 상세 조회로 최신 상태 반영
+//         const updated = await fetchOrderDetail(order.id);
+//         setOrder(updated);
+//     } catch (err) {
+//         setError('주문 상태 변경에 실패했습니다.');
+//     } finally {
+//         setLoading(false);
+//     }
+// };
 
 function OrderDetails() {
     const navigate = useNavigate();
     const location = useLocation();
     const { id } = useParams<{ id: string }>();
+    // const { order: shortOrderInfo } = location.state;
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -92,19 +41,42 @@ function OrderDetails() {
     useEffect(() => {
         const loadOrder = async () => {
             // First check if order was passed in location state
-            if (location.state?.order) {
-                setOrder(location.state.order);
-                setLoading(false);
-                return;
-            }
+            // if (location.state?.order) {
+            //     setOrder(location.state.order);
+            //     setLoading(false);
+            //     return;
+            // }
 
             // If not, try to fetch by ID
             if (id) {
                 try {
                     setLoading(true);
-                    const orderData = await fetchOrderById(id);
-                    if (orderData) {
-                        setOrder(orderData);
+                    const apiOrder = await fetchOrderDetail(id);
+                    if (apiOrder) {
+                        // Map API response to expected Order shape
+                        const mappedOrder: Order = {
+                            id: apiOrder.id,
+                            orderNumber: apiOrder.orderNumber,
+                            orderTotalPrice: apiOrder.orderTotalPrice,
+                            orderStatus: apiOrder.orderStatus,
+                            pickupType: apiOrder.pickupType === 'STORE_PICKUP' ? 'IN_STORE' : apiOrder.pickupType,
+                            orderRequestMemo: apiOrder.orderRequestMemo ?? '',
+                            orderExpectedPickupTime:
+                                typeof apiOrder.orderExpectedPickupTime === 'string'
+                                    ? new Date(apiOrder.orderExpectedPickupTime).getTime() / 1000
+                                    : apiOrder.orderExpectedPickupTime,
+                            store: { id: 0, name: apiOrder.storeName },
+                            member: { id: 0, name: apiOrder.memberNickname },
+                            orderItems: (apiOrder.orderItems || []).map((item: any, idx: number) => ({
+                                id: idx + 1,
+                                itemName: item.itemName,
+                                orderItemQuantity: item.quantity,
+                                itemPrice: item.itemPrice,
+                                finalPrice: item.finalPrice,
+                                options: [], // 옵션 정보가 없으면 빈 배열로
+                            })),
+                        };
+                        setOrder(mappedOrder);
                     } else {
                         setError('주문을 찾을 수 없습니다.');
                     }
@@ -160,8 +132,20 @@ function OrderDetails() {
     const handleChangeStatus = async () => {
         if (!order) return;
         setLoading(true);
-        const updated = await mockChangeOrderStatus(order);
-        setOrder(updated);
+        let nextStatus: 'PREPARING' | 'READY_FOR_PICKUP' | null = null;
+        if (order.orderStatus === 'PLACED') {
+            nextStatus = 'PREPARING';
+        } else if (order.orderStatus === 'PREPARING') {
+            nextStatus = 'READY_FOR_PICKUP';
+        }
+        if (nextStatus) {
+            try {
+                const updated = await updateOrderStatus(order.id, nextStatus);
+                setOrder((prev) => ({ ...prev!, orderStatus: nextStatus! }));
+            } catch (e) {
+                setError('상태 변경에 실패했습니다.');
+            }
+        }
         setLoading(false);
     };
 
@@ -174,16 +158,20 @@ function OrderDetails() {
             <OrderInfoCard order={order} />
             <OrderItemList items={order.orderItems} />
 
-            {order.orderStatus === 'PREPARING' && (
+            {(order.orderStatus === 'PLACED' || order.orderStatus === 'PREPARING') && (
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24, gap: 16 }}>
                     <Button
                         variant="contained"
-                        color="success"
+                        color={order.orderStatus === 'PLACED' ? 'primary' : 'success'}
                         onClick={handleChangeStatus}
                         disabled={loading}
                         sx={{ px: 4, py: 1.5 }}
                     >
-                        {loading ? '변경 중...' : '준비완료로 변경'}
+                        {loading
+                            ? '변경 중...'
+                            : order.orderStatus === 'PLACED'
+                            ? '제조중으로 변경'
+                            : '준비완료로 변경'}
                     </Button>
                 </div>
             )}

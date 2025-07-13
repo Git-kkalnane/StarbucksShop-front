@@ -22,7 +22,8 @@ export interface OrderItem {
     id: number;
     itemName: string;
     orderItemQuantity: number;
-    unitPrice: number;
+    itemPrice: number;
+    finalPrice: number;
     options?: ItemOption[];
 }
 
