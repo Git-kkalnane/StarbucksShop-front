@@ -1,6 +1,6 @@
-import { useAuthStore } from '../store/auth';
+import { useAuthStore } from '../services/auth';
 
 export function isAuthenticated() {
-  const { accessToken } = useAuthStore.getState();
-  return !!accessToken;
+    const { accessToken } = useAuthStore.getState();
+    return !!accessToken;
 }

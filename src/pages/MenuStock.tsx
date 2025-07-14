@@ -26,7 +26,7 @@ export default function MenuStock() {
       </Typography>
       <Grid container spacing={3}>
         {menu.map(item => (
-          <Grid item xs={12} sm={6} md={4} key={item.id}>
+          <Grid key={item.id} component="div" {...{ item: true, xs: 12, sm: 6, md: 4 }}>
             <Card sx={{ borderRadius: 3, boxShadow: 4 }}>
               <CardContent>
                 <Typography fontWeight={700} fontSize={18} color="primary.main" gutterBottom>

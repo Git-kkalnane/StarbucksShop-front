@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Container, Box } from '@mui/material';
 import { default as MuiGrid } from '@mui/material/Grid';
-import type { GridProps } from '@mui/material/Grid';
+
 import type { Order } from '../types/order';
 import { OrderCard } from '../components/PastOrders/OrderCard';
 import { LoadingState } from '../components/PastOrders/LoadingState';
@@ -30,14 +30,14 @@ const fetchPastOrders = async (): Promise<Order[]> => {
                             id: 1,
                             itemName: '카푸치노',
                             orderItemQuantity: 1,
-                            unitPrice: 4500,
+                            itemPrice: 4500,
                             options: [],
                         },
                         {
                             id: 2,
                             itemName: '에스프레소',
                             orderItemQuantity: 1,
-                            unitPrice: 4000,
+                            itemPrice: 4000,
                             options: [],
                         },
                     ],
@@ -57,7 +57,7 @@ const fetchPastOrders = async (): Promise<Order[]> => {
                             id: 3,
                             itemName: '아이스 아메리카노',
                             orderItemQuantity: 1,
-                            unitPrice: 4500,
+                            itemPrice: 4500,
                             options: [
                                 {
                                     id: 1,
@@ -117,14 +117,7 @@ const PastOrders: React.FC = () => {
             <Box sx={{ flexGrow: 1 }}>
                 <MuiGrid container spacing={3}>
                     {orders.map((order) => (
-                        <MuiGrid
-                            xs={12}
-                            sm={6}
-                            md={4}
-                            key={order.id}
-                            // @ts-ignore - MUI Grid types are incorrect
-                            component="div"
-                        >
+                        <MuiGrid key={order.id} component="div" {...{ xs: 12, sm: 6, md: 4 }}>
                             <OrderCard order={order} />
                         </MuiGrid>
                     ))}
